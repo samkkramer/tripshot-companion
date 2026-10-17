@@ -1,0 +1,41 @@
+{
+  "InternalRouteGroupLiveData": {
+    "sharedRouteId": "IRGI:DEMO-GROUP-ID",
+    "exactLiveData": [
+      {
+        "direction": "Inbound",
+        "liveRides": [
+          {
+            "ride": {
+              "rideId": "DEMO-RIDE-1",
+              "routeName": "DEMO Intercampus Inbound",
+              "lastEtaUpdate": "2026-10-16T23:27:00.000Z",
+              "stopStatus": [
+                {
+                  "stopId": "demo-stop-001",
+                  "viaIdx": 0,
+                  "scheduledAt": "18:25:00",
+                  "scheduledDepartureTime": "2026-10-16T23:25:00.000Z",
+                  "Awaiting": {"expectedArrivalTime": "2026-10-16T23:26:00.000Z", "riderStatus": "Late"}
+                },
+                {
+                  "stopId": "demo-stop-002",
+                  "viaIdx": 1,
+                  "scheduledAt": "18:30:00",
+                  "scheduledDepartureTime": "2026-10-16T23:30:00.000Z",
+                  "Awaiting": {"expectedArrivalTime": "2026-10-16T23:33:00.000Z", "riderStatus": "Late"}
+                }
+              ]
+            },
+            "vehicle": {"name": "FICTIONAL VEHICLE"}
+          }
+        ],
+        "liveTrips": [{"sharedTripId": "DEMO-TRIP-1", "state": {"Active": []}}],
+        "liveTimetable": [[{"sharedStopId": "demo-stop-001"}, {"sharedStopId": "demo-stop-002"}]],
+        "nonliveRides": []
+      },
+      {"direction": "Outbound", "liveRides": [], "liveTrips": [], "liveTimetable": [], "nonliveRides": []}
+    ],
+    "inexactLiveData": []
+  }
+}

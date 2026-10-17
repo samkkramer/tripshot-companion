@@ -1,0 +1,42 @@
+{
+  "ride": {
+    "etaAvailable": true,
+    "ride": {
+      "routeName": "DEMO Intercampus Route (fabricated fixture)",
+      "scheduledStart": "2026-10-16T23:25:00.000Z",
+      "scheduledEnd": "2026-10-17T00:40:00.000Z",
+      "lateBySec": 47,
+      "liveDataAvailable": true,
+      "lastEtaUpdate": "2026-10-16T23:27:00.000Z",
+      "stopStatus": [
+        {
+          "stopId": "demo-stop-001",
+          "viaIdx": 0,
+          "scheduledAt": "18:25:00",
+          "scheduledDepartureTime": "2026-10-16T23:25:00.000Z",
+          "Awaiting": {
+            "expectedArrivalTime": "2026-10-16T23:25:00.000Z",
+            "riderStatus": "OnTime"
+          }
+        },
+        {
+          "stopId": "demo-stop-002",
+          "viaIdx": 1,
+          "scheduledAt": "18:30:00",
+          "scheduledDepartureTime": "2026-10-16T23:30:00.000Z",
+          "Awaiting": {
+            "expectedArrivalTime": "2026-10-16T23:33:00.000Z",
+            "riderStatus": "Late"
+          }
+        }
+      ]
+    },
+    "route": {"name": "DEMO Intercampus Route (fabricated fixture)"},
+    "vehicleStatus": {
+      "location": {"lt": 41.9, "lg": -87.64},
+      "bearing": 179,
+      "speed": 6.8,
+      "when": "2026-10-16T23:28:00.000Z"
+    }
+  }
+}
