@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-17 — Service Updates model and refresh
+
+- Added a bounded official-page fetcher with pre-request redirect checks, deterministic conservative parser, versioned notices, provenance, applicability evaluator, and independent local cache.
+- Implemented 15-minute success TTL; 5/10/20/40/60-minute error retries, force refresh, conditional HTTP checks, OS locking, atomic manifest promotion, last-known-good recovery, history/rollback and 90-day history retention.
+- Automated SU01–SU21 acceptance scenarios, plus refresh-policy and corruption regressions. Unknown years, stops/directions, dates or effects remain explicit review warnings rather than guessed cancellations.
+- Validated against the actual official website: three shuttle notices parsed. The October 16 and Chicago Express notices omit explicit effective years, so they remain uncertain without evidence-bound reviewed context. No special-route departure times are synthesized.
+
 ## 2026-10-17 — Reliability prerequisites
 
 - Scheduled future MCP/CLI lookups no longer load live TripShot configuration.

@@ -8,6 +8,7 @@ import unittest
 
 def main() -> int:
     os.environ['TRIPSHOT_DISABLE_SCHEDULE_REFRESH'] = '1'
+    os.environ['TRIPSHOT_DISABLE_SERVICE_REFRESH'] = '1'
     # Fail early instead of allowing legacy test modules to install an SDK stub.
     from mcp.server import MCPServer  # noqa: F401
 
