@@ -118,7 +118,7 @@ def bundled_timetables() -> dict:
 
 
 def timetable_status() -> dict:
-    from published_sync import get_status, load_active, signature
+    from published_sync import ACTIVE, get_status, load_active, signature
     active=load_active()
     state=get_status()
     return {'timetable_revision': active['revision'] if active else signature(bundled_timetables()),
@@ -126,6 +126,8 @@ def timetable_status() -> dict:
             'timetable_checked_at_utc':state.get('checked_at_utc'),
             'timetable_check_status':state.get('status','not_checked'),
             'timetable_check_error':state.get('error'),
+            'timetable_cache_warning':state.get('cache_warning') or (active or {}).get('cache_warning') or
+                ('Invalid active timetable cache; using bundled fallback.' if active is None and ACTIVE.exists() else None),
             'timetable_warning': 'Published schedule changes and service exceptions are distinct. '
                                  'Temporary route closures and holiday changes are not auto-applied; '
                                  'check Northwestern service updates.'}
@@ -343,6 +345,7 @@ def plan_to_coordinates(origin_query: str, destination_latitude: float, destinat
     rides=[]
     for stop in nearby['stops']:
         trip = plan_trip(origin_query,stop['stop_name'],when_local,limit=30)
+        if trip.get('error'):return trip
         for opt in trip['options']:
             item = dict(opt)
             item['dropoff_straight_line_meters'] = stop['straight_line_meters']

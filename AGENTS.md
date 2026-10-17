@@ -10,4 +10,4 @@
 - Before staging, inspect the candidate list and scan only intended source/docs/synthetic fixtures for credentials without printing matches. Never stage local data, raw responses, environment files, binaries, tunnel configuration, backups, or caches. Preserve synthetic fixtures needed by tests.
 - Do not create remotes, push, deploy, or contact others without authorization.
 - Keep README for operation/architecture, PROJECT_STATUS for current facts/priorities, CHANGELOG for changes, and detailed findings/plans under docs. Historical playbook claims require verification.
-- Service Updates are separate from timetable refresh. The approved migration scope is a plan only; implement the plan after product-owner review.
+- Service Updates are separate from timetable refresh. The owner approved implementation of `docs/SERVICE_UPDATES_PLAN.md`: demand-driven 15-minute TTL, 5-minute error retry doubling to 60 minutes, force refresh, explicit uncertainty, preserved source evidence/history, no scheduler. Confirmed disruptions exclude journeys while original schedule records remain available; uncertain disruptions downgrade confidence.

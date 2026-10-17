@@ -219,28 +219,63 @@ def signature(routes):
 
 
 def _json(path, default=None):
-    if not path.is_file():
-        return default
     try:
+        if not path.is_file():
+            return default
         return json.loads(path.read_text(encoding='utf-8'))
     except (UnicodeError,ValueError,OSError):
         return default
 
 
-def load_active():
-    data=_json(ACTIVE)
+def _valid_active(data):
     if not isinstance(data,dict) or data.get('schema')!=1:
-        return None
+        return False
     routes=data.get('routes')
     if not isinstance(routes,dict) or set(routes)!=set(ROUTE_LABELS):
-        return None
+        return False
     if data.get('revision')!=signature(routes):
-        return None
-    return data
+        return False
+    from published_full import bundled_timetables
+    base=bundled_timetables()
+    for label, table in routes.items():
+        if not isinstance(table,dict) or table.get('stops')!=base[label]['stops']:
+            return False
+        if label.startswith('Loop'):
+            values=table.get('offsets_minutes')
+            if not isinstance(values,list) or len(values)!=len(table['stops']) or not all(
+                    type(x) is int and 0<=x<=50 for x in values):return False
+            if values[0]!=0 or values!=sorted(values):return False
+        else:
+            rows=table.get('rows_hhmm')
+            if not isinstance(rows,list) or len(rows)!=len(table['stops']):return False
+            if not all(isinstance(r,list) and 5<=len(r)<=80 for r in rows):return False
+            if len({len(r) for r in rows})!=1:return False
+            if not all(isinstance(x,str) and re.fullmatch(r'(?:[01]\d|2[0-3])[0-5]\d',x)
+                       for r in rows for x in r):return False
+            for col in zip(*rows):
+                mins=[int(x[:2])*60+int(x[2:]) for x in col]
+                if mins!=sorted(mins) or mins[-1]-mins[0]>240:return False
+    return True
+
+
+def load_active():
+    data=_json(ACTIVE)
+    if _valid_active(data):return data
+    try:
+        history=sorted(HISTORY.glob('*.json'),key=lambda p:p.stat().st_mtime,reverse=True)
+    except OSError:history=[]
+    for path in history:
+        old=_json(path)
+        if _valid_active(old):
+            return {**old,'cache_warning':'Invalid/missing active cache; using validated timetable history.'}
+    return None
 
 
 def get_status():
-    return _json(STATUS,{})
+    state=_json(STATUS)
+    if not isinstance(state,dict):
+        return {'cache_warning':'Missing or malformed timetable status; verification is unknown.'}
+    return state
 
 
 def _atomic_write(path,data):
@@ -307,8 +342,12 @@ def _due(status,now,force):
     if force:return True
     stamp=status.get('checked_at_utc')
     if not stamp:return True
-    try:age=now-datetime.fromisoformat(stamp)
-    except ValueError:return True
+    try:
+        checked=datetime.fromisoformat(stamp)
+        if checked.tzinfo is None:return True
+        age=now-checked
+        if age<timedelta(0):return True
+    except (ValueError,TypeError,OverflowError):return True
     interval=ERROR_RETRY_HOURS if status.get('status')=='error' else CHECK_HOURS
     return age>=timedelta(hours=interval)
 

@@ -111,7 +111,7 @@ def get_shuttles_at_time(stop_query: str, when_local: str, before_minutes: int =
     if valid_limit is None:
         return {'error':'invalid_limit','message':notice}
     try:
-        output = planned_at_time(stop_query.strip(), when_local, get_sources(),
+        output = planned_at_time(stop_query.strip(), when_local, {},
                                  before_minutes=before_minutes, after_minutes=after_minutes,
                                  limit=valid_limit)
     except (ValueError, TypeError, FileNotFoundError) as exc:

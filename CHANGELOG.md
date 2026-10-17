@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-17 — Reliability prerequisites
+
+- Scheduled future MCP/CLI lookups no longer load live TripShot configuration.
+- Location journey planning propagates invalid-date results instead of raising `KeyError`.
+- Timetable caches validate nested table structure, tolerate malformed status timestamps/types, and fall back to validated history or bundled tables with warnings.
+- Added offline regression coverage for configuration independence, date errors and corrupted caches. Existing MCP signatures and fields preserved.
+
 ## 2026-10-17 — Initial consolidated local baseline
 
 This is the first Git baseline of an existing application developed through v10. Earlier version references describe development stages, not earlier commits.

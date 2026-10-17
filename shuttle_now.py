@@ -189,7 +189,7 @@ def main():
     if not 1 <= args.limit <= 20:
         parser.error('--limit must be 1..20')
     try:
-        result = (planned_at_time(args.stop, args.at, get_sources(),
+        result = (planned_at_time(args.stop, args.at, {},
                                   before_minutes=args.before_minutes, after_minutes=args.after_minutes,
                                   limit=args.limit) if args.at
                   else combine(args.stop, get_sources(), limit=args.limit))
