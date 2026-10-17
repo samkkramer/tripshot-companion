@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-17 — Deployment-readiness review and controlled cutover plan
+
+- Reverified 105 regressions, real 18-tool MCP smoke and dependency consistency. A local MCP session from an unrelated directory successfully refreshed official Service Updates and queried future schedules and journeys with alerts enabled.
+- Confirmed the development catalog and both live-source templates exist/validate without displaying configuration contents. Documented missing-year/scope review proposals without approving them.
+- Inspected official OpenAI guidance, installed tunnel-client 0.0.16 help and whitelisted existing profile metadata. Prepared exact PowerShell backup/change/doctor/run and rollback procedures with single-instance guards and seven ChatGPT acceptance tests.
+- Documentation only: original profile/runtime unchanged; no tunnel started, credentials copied, remote configured, hosting or deployment performed. Authenticated diagnostics and cutover await owner approval and a trusted runtime-key-loaded operator shell.
+
 ## 2026-10-17 — Departure/journey integration and development verification
 
 - Preserved all 16 existing MCP signatures/defaults and existing scheduled/ETA fields. Added service-health/provenance fields and per-record disruption annotations to current/future departures and scheduled journeys.

@@ -115,6 +115,8 @@ The offline demo uses a synthetic paraphrase and explicit 2026 fixture review: t
 
 ## Security and contribution
 
+The operational `tripshot-local` profile still launches the Downloads runtime. See the [controlled cutover and rollback runbook](docs/DEPLOYMENT_RUNBOOK.md) for verified readiness, pending notice interpretations, exact Windows PowerShell steps and end-to-end acceptance. Explicit approval is required before changing/stopping/starting that operational tunnel; no cutover has been executed.
+
 Keep access read-only and limited to the validated hosts/endpoints. Do not add credentials, authenticated browser sessions, continuous polling, external writes, or deployment as routine changes. Inspect all candidate paths before staging; never commit secrets, local response data, environments, binaries or tunnel configuration. The three shipped JSON fixtures are synthetic. Do not publish the stdio server as an unauthenticated hosted endpoint.
 
 Follow [AGENTS.md](AGENTS.md), record changes in [CHANGELOG.md](CHANGELOG.md), and preserve tool contracts. Git baseline is local only; no remote or push is configured by this migration.
