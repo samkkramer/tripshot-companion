@@ -41,6 +41,9 @@ class ReliabilityTests(unittest.TestCase):
             for data in ('[]','null','{bad'):
                 ps.STATUS.write_text(data,encoding='utf-8')
                 self.assertIn('cache_warning',ps.get_status())
+            ps.STATUS.write_text(json.dumps({'checked_at_utc':'2026-10-17T00:00:00','status':'unchanged'}))
+            self.assertIsNone(ps.get_status()['checked_at_utc'])
+            self.assertEqual(ps.get_status()['status'],'error')
 
     def test_corrupt_active_falls_back_and_history_recovers(self):
         with tempfile.TemporaryDirectory() as d, patch.object(ps,'ACTIVE',Path(d)/'active.json'), \

@@ -1,6 +1,6 @@
 # Service Updates integration plan — for product-owner review
 
-**Status: design and proposed tests only. No Service Updates runtime implementation, polling, or new MCP tool is included in the migration.** This is separate from the existing timetable refresh.
+**Status: approved design, implemented in the subsequent development phase.** The original migration included this plan only. See `SERVICE_UPDATES_IMPLEMENTATION.md` for delivered behavior, automated SU01–SU21 tests, current limitations and verification. Service Updates remain separate from timetable refresh; there is no background polling.
 
 ## Evidence and scope
 
@@ -72,9 +72,9 @@ Proposed additive fields: `service_updates_status`, `service_updates_checked_at`
 
 TripShot may still report a ride at an officially closed stop. Keep both pieces of evidence; the official service exception controls recommendation eligibility, while the conflict is explicit. Snapshot history should not acquire current alerts as if they were in the original observation. Attach contextual alerts separately with their own temporal applicability.
 
-## Proposed acceptance tests (not yet executable)
+## Acceptance test design (now automated)
 
-These become offline fixtures and parser/evaluator/integration tests in the approved implementation. Use injected clocks/fetchers, temporary cache roots, and the real SDK smoke test after integration. No test requires network or production configuration.
+These scenarios are now automated in `tests/test_service_updates.py`, with additional integration/transport tests in `tests/test_service_integration.py`. They use injected clocks/fetchers, temporary cache roots, and real SDK smoke verification. No regression test requires network or production configuration.
 
 | ID | Input/example | Expected assertion |
 | --- | --- | --- |

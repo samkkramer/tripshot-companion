@@ -82,7 +82,7 @@ class _Section(HTMLParser):
     def handle_data(self,data):
         if self.hidden:return
         if self.heading:self.heading_text.append(data)
-        elif self.in_section:self._text(data)
+        elif self.in_section:self._text(re.sub(r'\s+',' ',data))
 
     def handle_endtag(self,tag):
         if tag=='body':self.body_closed=True
@@ -121,7 +121,8 @@ def validity(text,reviewed_year=None):
     if iso:
         try:
             values=[_local(datetime.fromisoformat(x.replace('Z','+00:00'))) for x in iso]
-            if len(values)!=2 or values[1]<=values[0]:raise ValueError('Expected increasing interval')
+            if len(values)!=2 or values[1].astimezone(timezone.utc)<=values[0].astimezone(timezone.utc):
+                raise ValueError('Expected increasing interval')
             windows=[{'start':values[0].isoformat(),'end':values[1].isoformat(),'end_inclusive':False}]
         except ValueError as exc:reasons.append(str(exc))
         return windows,iso,reasons,'explicit_timestamp'
@@ -179,10 +180,23 @@ def interpret(raw,reviewed_years=None):
     title=raw['heading'];body='\n'.join(normalized(x) for x in ''.join(raw['body']).splitlines() if normalized(x))
     text=title+'\n'+body
     evidence_hash=digest([normalized(title),normalized(body),sorted(set(raw['links']))])
-    review=(reviewed_years or {}).get(evidence_hash)
+    context=(reviewed_years or {}).get(evidence_hash)
+    review=context.get('year') if isinstance(context,dict) else context
     if review is not None and (type(review) is not int or not 2000<=review<=2100):
         raise NoticeFormatError('Invalid reviewed year context')
+    if isinstance(context,dict):
+        try:
+            reviewed_at=datetime.fromisoformat(context['reviewed_at'])
+            if reviewed_at.tzinfo is None or not all(isinstance(context.get(k),str) and context[k].strip()
+                    for k in ('reviewer','reason')):raise ValueError()
+        except (KeyError,ValueError,TypeError):raise NoticeFormatError('Reviewed context needs reviewer, reason and aware timestamp')
     windows,phrases,reasons,basis=validity(text,review)
+    if re.search(r'\b(?:updated|posted|published)\s*:?\s*(?:'+'|'.join(MONTHS)+r'|20\d{2}-)',text,re.I):
+        windows=[];reasons.append('Publication/update dates are not automatically treated as effective dates.')
+    for window in windows:
+        window['start_utc']=datetime.fromisoformat(window['start']).astimezone(timezone.utc).isoformat()
+        window['end_utc']=datetime.fromisoformat(window['end']).astimezone(timezone.utc).isoformat() if window['end'] else None
+        window['precision']='minute' if CLOCK_RE.search(text) or ISO_RE.search(text) else 'date'
     routes=[r for r,pattern in (('Intercampus',r'\bintercampus\b'),('Loop',r'\bloop\b'),
             ('Chicago Express',r'\bchicago express\b')) if re.search(pattern,text,re.I)]
     def explicit_directions(value):
@@ -194,7 +208,8 @@ def interpret(raw,reviewed_years=None):
         lower=clause.lower()
         if re.search(r'\bno service at\b|\bstops? (?:are |will be )?(?:closed|not served)\b|\bwill not (?:serve|stop at)\b',lower):
             names=[name for name,pattern in STOP_FAMILIES.items() if re.search(pattern,clause,re.I)]
-            residual=re.sub(r'^.*?(?:no service at|will not (?:serve|stop at))','',clause,flags=re.I)
+            scope=re.split(r'\b(?:on|from|until|between|through|starting|effective|after)\b',clause,maxsplit=1,flags=re.I)[0]
+            residual=re.sub(r'^.*?(?:no service at|will not (?:serve|stop at))','',scope,flags=re.I)
             for pattern in STOP_FAMILIES.values():residual=re.sub(pattern,'',residual,flags=re.I)
             residual=re.sub(r'\b(?:the|and|or|stop|stops|station|are|is|will|be|closed|not|served|until|further|notice)\b',
                             '',residual,flags=re.I)
@@ -204,7 +219,7 @@ def interpret(raw,reviewed_years=None):
                             'certain':bool(names) and not unknown,'evidence':normalized(clause)})
             if not names or unknown:reasons.append('Affected stop names or directional variants require review.')
         if re.search(r'\b(?:cancel(?:ed|led|lation)|suspend(?:ed)?|no (?:shuttle )?service)\b',lower) and not re.search(r'\bno service at\b',lower):
-            uncertain=bool(re.search(r'\b(?:may|might|possible|possibly|could|north of|south of|at)\b|\bbetween\s+[a-z]',lower))
+            uncertain=bool(re.search(r'\b(?:may|might|possible|possibly|could|north of|south of|not|never)\b|\b(?:at|between)\s+[a-z]',lower))
             specific=explicit_directions(clause) or directions
             if re.search(r'\b(?:northbound|southbound|eastbound|westbound)\b',lower) and not specific:
                 uncertain=True;reasons.append('Route direction requires explicit mapping/review.')
@@ -220,7 +235,7 @@ def interpret(raw,reviewed_years=None):
             effects.append({'type':'detour','stop_families':[],'directions':directions,
                             'certain':False,'evidence':normalized(clause)})
     special=bool(re.search(r'\bchicago express\b|\bspecial (?:shuttle|service)\b',text,re.I))
-    withdrawn=bool(re.search(r'\b(?:withdrawn|rescinded|retracted|closure (?:is |has been )?lifted)\b',body,re.I)) and not bool(
+    withdrawn=bool(re.search(r'\b(?:the |this )?(?:closure|notice|cancellation) (?:is |has been )(?:withdrawn|rescinded|retracted|lifted)\b',body,re.I)) and not bool(
         re.search(r'\b(?:may|might|possible|possibly|could|not)\b',body,re.I))
     if special:effects.append({'type':'special_service','stop_families':[],'directions':[],
                                'certain':False,'evidence':title})
@@ -232,6 +247,9 @@ def interpret(raw,reviewed_years=None):
     if not routes and operational:reasons.append('Affected route is unresolved.')
     if re.search(r'\bone direction\b|\bsome stops\b|\bunspecified\b',text,re.I):
         reasons.append('Operational scope is ambiguous.')
+        for e in effects:e['certain']=False
+    if re.search(r'\b(?:may|might|possibly|possible|could|tentative|proposed|if)\b',text,re.I):
+        reasons.append('Conditional or tentative operational wording requires review.')
         for e in effects:e['certain']=False
     if operational and not windows:reasons.append('Effective interval unresolved; automatic cancellation disabled.')
     if any(e['type']=='unresolved' for e in effects):reasons.append('Operational wording is not supported; review required.')
@@ -246,6 +264,7 @@ def interpret(raw,reviewed_years=None):
             'source_url':SOURCE_URL,'source_anchor':anchor,'links':sorted(set(raw['links'])),
             'routes':routes,'directions':directions,'effects':effects,'windows':windows,
             'original_date_phrases':phrases,'date_basis':basis,'reviewed_year':review,
+            'review_context':context if isinstance(context,dict) else ({'year':review,'basis':'explicit parser API input'} if review else None),
             'warnings':list(dict.fromkeys(reasons)),'withdrawn':withdrawn,
             'published_at':None,'source_updated_at':None,'lifecycle':'present',
             'parser_version':PARSER_VERSION}

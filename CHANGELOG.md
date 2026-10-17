@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-17 — Departure/journey integration and development verification
+
+- Preserved all 16 existing MCP signatures/defaults and existing scheduled/ETA fields. Added service-health/provenance fields and per-record disruption annotations to current/future departures and scheduled journeys.
+- Confirmed cancellations/unserved boarding or alighting stops exclude journey recommendations. Original options/counts remain available; uncertain notices, unresolved truncations, conflicting restorations and unavailable refreshes produce provisional recommendations.
+- Pinned one exception revision throughout each response, including location journey comparisons. Added read-only `get_service_updates` and `refresh_service_updates` tools; real stdio discovery now returns 18 tools.
+- Added hash-bound local reviewed-year context with reviewer/reason/timestamp, without automatic year inference. Source wording changes invalidate that review. Added an offline October 16 before/after demonstration.
+- Verified 105 regressions (including all SU01–SU21 scenarios), real MCP handshake and two tool invocations, and the offline demonstration. Actual official HTML parses successfully in an isolated cache. No new dependencies, tunnel/runtime changes, remote, scheduler, infrastructure or deployment.
+
 ## 2026-10-17 — Service Updates model and refresh
 
 - Added a bounded official-page fetcher with pre-request redirect checks, deterministic conservative parser, versioned notices, provenance, applicability evaluator, and independent local cache.

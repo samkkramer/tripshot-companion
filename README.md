@@ -4,7 +4,7 @@ An existing read-only Python MCP application for Northwestern shuttle informatio
 
 ## Architecture and data sources
 
-`server.py` exposes 16 stdio MCP tools over the installed Python SDK. Domain modules also work through local CLIs:
+`server.py` exposes 18 stdio MCP tools over the installed Python SDK (the original 16 plus Service Updates query/refresh). Domain modules also work through local CLIs:
 
 ```text
 MCP client → server.py
@@ -14,15 +14,19 @@ MCP client → server.py
   │                 └─ live_groups + tripshot_enrichment → states/ETAs/directions
   └─ published_full → bundled four-direction schedules + local timetable overlay
                        └─ published_sync → four official Northwestern HTML pages
+  Departure/journey results ← service_updates → conservative notice interpretation
+                                  └─ official Service Updates page + independent cache
 ```
 
 TripShot route-group responses are retrieved once per configured route/service day, without authentication headers or cookies. Near midnight, adjacent service days are fetched and duplicate records removed. Upcoming results normally cover four hours. Live-group membership and recent ETA timestamps do not prove GPS prediction accuracy.
 
 Published 2026–27 tables cover Loop clockwise/counterclockwise (13 stop occurrences each) and Intercampus Evanston→Chicago (18) / Chicago→Evanston (12). They support future departures and same-vehicle board/alight planning. Nearby stops use imported GPS and straight-line distances, without a walking network, transfers, or accessibility routing.
 
-Timetable refresh checks four fixed [official schedule pages](https://www.northwestern.edu/transportation-parking/shuttles/routes/), validates tables, detects semantic changes and retains fallback/history. It runs on demand during schedule operations: normally every 24 hours, retry after errors every 2 hours. It is not a background service. Calendars, service hours, and temporary exceptions are not refreshed. [Service Updates](https://www.northwestern.edu/transportation-parking/service-updates/) integration is planned separately and is not implemented.
+Timetable refresh checks four fixed [official schedule pages](https://www.northwestern.edu/transportation-parking/shuttles/routes/), validates tables, detects semantic changes and retains fallback/history. It runs on demand during schedule operations: normally every 24 hours, retry after errors every 2 hours. Calendars and service hours remain bundled rules. [Service Updates](https://www.northwestern.edu/transportation-parking/service-updates/) are evaluated separately through an independent on-demand cache, never written into timetable cells.
 
-See [tool signatures and output semantics](docs/MCP_TOOLS.md), [current status](PROJECT_STATUS.md), [audit and limitations](docs/REPOSITORY_AUDIT.md), and [Service Updates plan](docs/SERVICE_UPDATES_PLAN.md). [The playbook](docs/AI_Integration_Development_Playbook.md) is development history, not implementation proof.
+Service Updates use a 15-minute success TTL and error retries at 5, 10, 20, 40, then 60 minutes. Confirmed cancellations and unserved boarding/alighting stops exclude affected journey recommendations while retaining original schedule evidence. Uncertain dates, directions, stops, truncations, conflicting notices or failed refreshes produce warnings/provisional recommendations. Departure rows preserve their scheduled/reported times and carry disruption annotations. Special-service announcements are surfaced without inventing departure times. No absence/error result confirms normal service, and there is no background scheduler.
+
+See [tool schemas](docs/MCP_TOOLS.md), [current status](PROJECT_STATUS.md), [historical audit](docs/REPOSITORY_AUDIT.md), and [Service Updates implementation/review workflow](docs/SERVICE_UPDATES_IMPLEMENTATION.md). The [approved plan](docs/SERVICE_UPDATES_PLAN.md) and [playbook](docs/AI_Integration_Development_Playbook.md) preserve design/history; current code and tests remain authoritative.
 
 ## Installation (Windows PowerShell, Python 3.14)
 
@@ -47,7 +51,7 @@ Direct dependencies are `mcp>=2,<3` and `tzdata>=2025.2` in `requirements.txt`. 
 .\.venv\Scripts\python.exe test_tripshot_mcp_local.py
 ```
 
-The runner disables automatic timetable refresh, requires the real MCP SDK, and runs both `tests/` and the root version/limit modules (65 tests at baseline). Default unittest discovery alone does not include all tests. The smoke test launches and closes its own local subprocess, verifies all 16 names, and invokes the bundled synthetic ride. It needs neither imported data nor a tunnel and cannot validate GPS accuracy or a remote connection.
+The runner disables both automatic refresh sources, requires the real MCP SDK, and runs `tests/` plus the root version/limit modules (105 tests after Service Updates). This includes automated SU01–SU21 acceptance scenarios, five reliability regressions and further integration/transport tests. Default unittest discovery alone does not include all tests. The smoke test launches/closes its own local subprocess, verifies all 18 names, invokes the synthetic ride and queries cached Service Updates. It needs neither imported data nor a tunnel and cannot validate GPS accuracy or a remote connection. Contract regression checks require Git and the retained baseline commit.
 
 ## Local operation
 
@@ -55,11 +59,13 @@ Use these offline demonstrations without importing TripShot data:
 
 ```powershell
 $env:TRIPSHOT_DISABLE_SCHEDULE_REFRESH = '1'
+$env:TRIPSHOT_DISABLE_SERVICE_REFRESH = '1'
 .\.venv\Scripts\python.exe demo.py
 .\.venv\Scripts\python.exe published_schedule_cli.py routes
 .\.venv\Scripts\python.exe published_schedule_cli.py departures 'Central L' 2026-10-19T08:15
 .\.venv\Scripts\python.exe published_schedule_cli.py trip 'Emerson/Maple (EB)' 'Sheridan/Haven - Tech (SB)' 2026-10-19T08:00
 .\.venv\Scripts\python.exe timetable_sync_cli.py status
+.\.venv\Scripts\python.exe examples/service_updates_demo.py
 ```
 
 Use dates within the published service calendar; the example dates are fixed baseline examples. Results are approximate schedule entries, not confirmation of operation. Remove the environment flag to permit on-demand automatic timetable checks:
@@ -82,7 +88,7 @@ For authorized current lookups, import only a saved stop response body (not head
 .\.venv\Scripts\python.exe nearby.py 42.052 -87.685 --limit 5
 ```
 
-Local files `data/stops_catalog.local.json`, `data/stop_names.local.json`, `data/sources.local.json`, response captures and refresh state/history are ignored. A fresh clone has only synthetic fixtures and bundled tables; importing the catalog/configuration is a separate local step. Current implementation issue: the MCP future-departure wrapper and `shuttle_now --at` unnecessarily require the live-source config; use `published_schedule_cli.py` without it until fixed.
+Local files `data/stops_catalog.local.json`, `data/stop_names.local.json`, `data/sources.local.json`, response captures and both refresh caches/history are ignored. A fresh clone has only synthetic fixtures and bundled tables; catalog/configuration import is a separate local step. Future scheduled queries work without live-source configuration. Invalid location-journey dates propagate errors, and malformed timetable caches fall back to validated history or bundled schedules.
 
 Saved-data tools optionally use `TRIPSHOT_JSON_PATH` (ride), `TRIPSHOT_STOP_NAMES_PATH` (name mapping), and `TRIPSHOT_LIVE_JSON_PATH` (route-group response). Never point development tools to production-private files. The default ride is synthetic; the default route-group file `data/live_response.json` is not supplied. See diagnostic CLIs in the audit for optional snapshot investigations.
 
@@ -97,7 +103,15 @@ Configure a local stdio-compatible MCP client to launch this development interpr
 }
 ```
 
-This is a local client example, not a tunnel configuration. Running `server.py` directly waits for protocol input; verify with the smoke test instead. Tools include current/future departures, snapshots, stop discovery/proximity, scheduled journeys, and timetable status/refresh; [all 16 signatures](docs/MCP_TOOLS.md) are documented separately. Client-side discovery may need refreshing after future schema changes. The migration does not restart, reconnect, or reconfigure the existing ChatGPT tunnel.
+This is a local client example, not a tunnel configuration. Running `server.py` directly waits for protocol input; verify with the smoke test instead. Tools include current/future departures, snapshots, stop discovery/proximity, scheduled journeys, timetable status/refresh, and Service Updates; [all 18 signatures](docs/MCP_TOOLS.md) are documented separately. Client-side discovery may need refreshing after schema changes. This development work does not restart, reconnect, or reconfigure the existing ChatGPT tunnel.
+
+## Service Updates review
+
+Call `get_service_updates(refresh=False)` to inspect cache without network, `get_service_updates(route="Intercampus", when_local="2026-10-19T08:00")` for applicable notices, or `refresh_service_updates(force=True)` for an explicit check. To enable automatic Service Updates checks after offline work, remove `Env:TRIPSHOT_DISABLE_SERVICE_REFRESH`; the timetable flag remains independent. Explicit refresh tools bypass their automatic-disable flags.
+
+The current official October 16 notice omits its year, so default interpretation remains uncertain. An explicit reviewed year can be supplied in ignored `data/service_updates/reviewed_years.json`, tied to that notice's exact evidence revision and including reviewer, reason and aware timestamp. Changed source wording invalidates the review. See [the documented format](docs/SERVICE_UPDATES_IMPLEMENTATION.md); no review has been silently created for production data.
+
+The offline demo uses a synthetic paraphrase and explicit 2026 fixture review: the original **October 16, 16:32 Central L (EB)** schedule record remains visible, changes from `uncertain` to `unavailable`, and affected same-vehicle journeys move to `excluded_options`. It makes no external requests and uses only a temporary cache.
 
 ## Security and contribution
 

@@ -1,5 +1,7 @@
 # Migration audit — 2026-10-17
 
+**Historical migration findings:** The subsequent development phase fixed items 2–4 below and implemented conservative Service Updates. This audit preserves the original evidence; see `PROJECT_STATUS.md` and `SERVICE_UPDATES_IMPLEMENTATION.md` for current behavior and limitations.
+
 ## Scope and environment
 
 Audited the Projects development copy, not the Downloads runtime. No tunnel configuration was read, changed, or started. Git was absent and initialized locally. Existing modules and contracts were retained, with one focused timetable parser fix described below.

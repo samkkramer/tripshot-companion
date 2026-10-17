@@ -11,6 +11,7 @@ from nearby_stops import find_nearby_stops as geo_nearby_stops
 from shuttle_now import combine as combine_arrivals, planned_at_time
 from tripshot_provider import get_sources
 from published_full import route_stops, plan_trip, served_stops_near, plan_to_coordinates, check_timetable_updates, timetable_status
+import service_updates as service
 
 mcp = MCPServer("TripShot Snapshot Explorer")
 
@@ -76,6 +77,8 @@ def get_next_shuttles(stop_query: str, limit: int = 8) -> dict:
     the ETAs are GPS-validated. "NonDirectional" is not a compass direction.
     Do not use this tool to assert future-morning service availability when
     the requested time is beyond its four-hour lookahead.
+    Service-alert annotations can mark a reported arrival unavailable; the
+    original TripShot ETA remains visible and does not override an official closure.
     """
     if not isinstance(stop_query, str) or not stop_query.strip() or len(stop_query) > 128:
         return {"error": "invalid_stop_query", "message": "Provide a stop name of 1-128 characters, e.g. Emerson/Maple (WB)."}
@@ -104,6 +107,8 @@ def get_shuttles_at_time(stop_query: str, when_local: str, before_minutes: int =
     No TripShot HTTP calls needed for future published schedules.
     Returns an inconclusive result, not 'no service', if data is missing.
     For shuttles due within minutes, call get_next_shuttles instead.
+    Scheduled rows remain visible with service-alert annotations even when a
+    stop is temporarily unserved. Inspect service_impact before recommending travel.
     """
     if not isinstance(stop_query, str) or not stop_query.strip() or len(stop_query) > 128:
         return {'error':'invalid_stop_query', 'message':'Provide a stop name of 1-128 characters.'}
@@ -158,6 +163,9 @@ def plan_scheduled_shuttle_trip(origin_stop: str, destination_stop: str, when_lo
 
     when_local is YYYY-MM-DDTHH:MM America/Chicago. Does not plan transfers
     or walking; planned time is not a promise of travel time.
+    Confirmed closures exclude recommendations; scheduled_options and
+    excluded_options retain the original schedule evidence. Uncertain alerts
+    mark remaining options provisional.
     """
     val,notice=_validated_limit(limit,default=8)
     if val is None:return {'error':'invalid_limit','message':notice}
@@ -225,6 +233,32 @@ def get_published_timetable_status() -> dict:
     for an immediate recheck of the official Northwestern timetable pages.
     """
     return timetable_status()
+
+
+@mcp.tool()
+def get_service_updates(route: str = "", when_local: str = "", refresh: bool = True) -> dict:
+    """Read official Northwestern shuttle notices, including special services.
+
+    Empty route/time returns all notices. Optional when_local is an unambiguous
+    Chicago ISO timestamp. refresh=True checks on demand (15-minute success TTL;
+    error backoff 5–60 minutes); False reads cache only. No notice or fetch failure
+    ever confirms normal operation. Times for unmodeled special routes are not invented.
+    """
+    if not isinstance(route,str) or len(route)>128 or not isinstance(when_local,str) or len(when_local)>64:
+        return {'error':'invalid_query'}
+    if type(refresh) is not bool:return {'error':'invalid_refresh'}
+    return service.query(route=route.strip() or None,when_local=when_local.strip() or None,auto_refresh=refresh)
+
+
+@mcp.tool()
+def refresh_service_updates(force: bool = False) -> dict:
+    """Refresh official shuttle announcements; only local cache files are written.
+
+    force=True bypasses TTL/backoff once. Failure retains last-known-good notices
+    with stale/unavailable health. Does not refresh timetable cells or contact TripShot.
+    """
+    if type(force) is not bool:return {'error':'invalid_force'}
+    return service.refresh(force=force)
 
 
 if __name__ == "__main__":

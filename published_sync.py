@@ -223,7 +223,7 @@ def _json(path, default=None):
         if not path.is_file():
             return default
         return json.loads(path.read_text(encoding='utf-8'))
-    except (UnicodeError,ValueError,OSError):
+    except (UnicodeError,ValueError,OSError,RecursionError):
         return default
 
 
@@ -275,6 +275,14 @@ def get_status():
     state=_json(STATUS)
     if not isinstance(state,dict):
         return {'cache_warning':'Missing or malformed timetable status; verification is unknown.'}
+    if state.get('checked_at_utc') is not None:
+        try:
+            checked=datetime.fromisoformat(state['checked_at_utc'])
+            if checked.tzinfo is None:raise ValueError()
+        except (TypeError,ValueError,OverflowError):
+            return {**state,'checked_at_utc':None,'status':'error',
+                    'error':'Malformed timetable verification timestamp; recheck required.',
+                    'cache_warning':'Timetable verification time is unknown.'}
     return state
 
 

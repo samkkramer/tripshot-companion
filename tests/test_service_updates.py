@@ -142,6 +142,8 @@ class ServiceUpdatesTests(unittest.TestCase):
         self.assertEqual(rev,second['service_updates_revision'])
         third=self.refresh(confirmed_page().replace('No service','No   service'))
         self.assertEqual(rev,third['service_updates_revision'])
+        reflowed=self.refresh(confirmed_page().replace('No service','No\n   service'))
+        self.assertEqual(rev,reflowed['service_updates_revision'])
         changed=self.refresh(confirmed_page(BODY+'\nPlease verify changed boarding instructions.'))
         self.assertNotEqual(rev,changed['service_updates_revision'])
 

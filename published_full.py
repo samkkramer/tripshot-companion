@@ -15,6 +15,7 @@ from pathlib import Path
 from tripshot_provider import CHICAGO
 from published_loop import CW, CCW, in_service as loop_in_service
 from published_intercampus import HOLIDAYS
+import service_updates as service
 
 SOURCES = {
     'Loop Clockwise': 'https://www.northwestern.edu/transportation-parking/shuttles/routes/schedules/loop-shuttle-cw.html',
@@ -129,8 +130,8 @@ def timetable_status() -> dict:
             'timetable_cache_warning':state.get('cache_warning') or (active or {}).get('cache_warning') or
                 ('Invalid active timetable cache; using bundled fallback.' if active is None and ACTIVE.exists() else None),
             'timetable_warning': 'Published schedule changes and service exceptions are distinct. '
-                                 'Temporary route closures and holiday changes are not auto-applied; '
-                                 'check Northwestern service updates.'}
+                                 'Temporary exceptions are not auto-applied to timetable cells/calendars; '
+                                 'departure and journey results evaluate Service Updates separately.'}
 
 
 def check_timetable_updates(*, force: bool = False) -> dict:
@@ -228,6 +229,7 @@ def _scheduled_record(route, direction, ride, stop, at):
     }
 
 
+@service.pinned
 def lookup(query: str, start: datetime, end: datetime, limit: int = 20) -> dict:
     if not query or not query.strip():
         return {'error':'invalid_stop_query', 'message':'Supply stop name; use list_published_routes to browse all routes/stops.'}
@@ -237,7 +239,10 @@ def lookup(query: str, start: datetime, end: datetime, limit: int = 20) -> dict:
             if start <= at <= end and _matched(stop,query):
                 rows.append(_scheduled_record(route,direction,ride,stop,at))
     rows.sort(key=lambda r: (r['scheduled_departure_local'], r['route_group']))
+    state=service.snapshot()
+    rows=service.annotate_departures(rows,state)
     return {'stop_query':query,'arrivals':rows[:limit],'total_matched':len(rows),
+            **service.metadata(state),
             'data_type':'SCHEDULE_ONLY_NOT_LIVE',
             'coverage':[{'route':'Loop','direction':'both','all_published_stops':26,'ok':True},
                         {'route':'Intercampus','direction':'both','all_published_stops':30,'ok':True}],
@@ -257,6 +262,7 @@ def _get_candidates(query: str, routes: list[dict]):
     return matches
 
 
+@service.pinned
 def plan_trip(origin: str, destination: str, when_local: str, *, limit: int = 8, horizon_hours: int = 4):
     """Same-vehicle scheduled stop-to-stop itinerary; no unverified transfers.
 
@@ -284,9 +290,16 @@ def plan_trip(origin: str, destination: str, when_local: str, *, limit: int = 8,
                                 'stop_count':di-oi,'data_type':'PUBLISHED_SCHEDULE_NOT_LIVE',
                                 'source_url':SOURCES[f'{route} {direction}']})
     options.sort(key=lambda x:(x['board_time_local'],x['estimated_in_vehicle_minutes']))
+    state=service.snapshot()
+    scheduled=[service.annotate_journey(o,state) for o in options]
+    recommended=[o for o in scheduled if o['recommendation_status']!='excluded']
+    excluded=[o for o in scheduled if o['recommendation_status']=='excluded']
     known=route_stops()
     response={'from_query':origin,'to_query':destination,'after_local':at.isoformat(timespec='minutes'),
-              'options':options[:limit],'total_matching_scheduled_rides':len(options),
+              'options':recommended[:limit],'total_matching_scheduled_rides':len(options),
+              'scheduled_options':scheduled[:limit],'excluded_options':excluded[:limit],
+              'total_excluded_options':len(excluded),'total_recommended_options':len(recommended),
+              **service.metadata(state),
               **timetable_status(),
               'walking_time_included':False,'real_time_included':False,
               'note':'Same-vehicle published approximate times; no transfers, traffic or walking time included.'}
@@ -333,6 +346,7 @@ def served_stops_near(latitude: float, longitude: float, limit: int = 12, radius
             'warning':'A stop being near a place does not prove the route is useful or that walking access is direct.'}
 
 
+@service.pinned
 def plan_to_coordinates(origin_query: str, destination_latitude: float, destination_longitude: float,
                         when_local: str, limit: int = 8):
     """Compare SAME-VEHICLE transit to geo-nearby dropoff stops.
@@ -343,10 +357,11 @@ def plan_to_coordinates(origin_query: str, destination_latitude: float, destinat
     nearby = served_stops_near(destination_latitude,destination_longitude,limit=20,radius_m=3000)
     if nearby.get('error'):return nearby
     rides=[]
+    excluded=[]
     for stop in nearby['stops']:
         trip = plan_trip(origin_query,stop['stop_name'],when_local,limit=30)
         if trip.get('error'):return trip
-        for opt in trip['options']:
+        for opt in trip['options']+trip.get('excluded_options',[]):
             item = dict(opt)
             item['dropoff_straight_line_meters'] = stop['straight_line_meters']
             item['destination_stop_id'] = stop['stop_id']
@@ -356,16 +371,26 @@ def plan_to_coordinates(origin_query: str, destination_latitude: float, destinat
             item['rough_end_to_end_arrival_local'] = (
                 datetime.fromisoformat(item['alight_time_local'])+
                 timedelta(minutes=item['rough_walk_minutes_not_routed'])).isoformat(timespec='seconds')
-            rides.append(item)
+            if item.get('recommendation_status')=='excluded':excluded.append(item)
+            else:rides.append(item)
     rides.sort(key=lambda r:(r['rough_end_to_end_arrival_local'],r['board_time_local']))
     unique,seen=[],set()
     for r in rides:
         key=(r['ride_id'],r['destination_stop_id'])
         if key in seen:continue
         seen.add(key); unique.append(r)
+    excluded_unique=[]
+    for r in excluded:
+        key=(r['ride_id'],r['destination_stop_id'])
+        if key in seen:continue
+        seen.add(key);excluded_unique.append(r)
+    all_scheduled=sorted(unique+excluded_unique,key=lambda r:(r['rough_end_to_end_arrival_local'],r['board_time_local']))
     return {'origin_query':origin_query,'destination_latitude':destination_latitude,
             'destination_longitude':destination_longitude,
-            'options':unique[:limit],'total_options':len(unique),
+            'options':unique[:limit],'total_options':len(all_scheduled),
+            'scheduled_options':all_scheduled[:limit],'total_recommended_options':len(unique),
+            'excluded_options':excluded_unique[:limit],'total_excluded_options':len(excluded_unique),
+            **service.metadata(service.snapshot()),
             'data_type':'PUBLISHED_SCHEDULE_ONLY',
             'walking_distance_method':'straight_line_not_walkable_route',
             'warning':'Do not call this the fastest walking route or guaranteed arrival; confirm accessibility and walking directions separately.'}

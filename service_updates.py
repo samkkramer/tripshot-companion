@@ -66,9 +66,10 @@ def _active_valid(a):
 
 def _read(path):
     try:
+        if path.is_symlink():return None
         if path.stat().st_size>5_000_000:return None
         return json.loads(path.read_text(encoding='utf-8'))
-    except (OSError,ValueError,UnicodeError):return None
+    except (OSError,ValueError,UnicodeError,RecursionError):return None
 
 
 def load_manifest(root=None):
@@ -154,11 +155,17 @@ def refresh(*,force=False,root=None,now=None,fetcher=None,reviewed_years=None):
                 out=view(previous,now=now);out['refresh_status']='in_progress';return out
             previous=load_manifest(root)
             active=previous['active'];health=previous['health']
+            contexts=reviewed_years
+            if contexts is None:
+                contexts=_read(root/'reviewed_years.json') if (root/'reviewed_years.json').exists() else {}
+            valid_contexts=isinstance(contexts,dict) and all(isinstance(k,str) and re.fullmatch(r'[0-9a-f]{64}',k) for k in contexts)
+            context_hash=digest(contexts) if valid_contexts else None
             retry=stamp(health.get('next_retry_at'))
-            compatible=active and active.get('parser_version')==PARSER_VERSION
+            compatible=active and active.get('parser_version')==PARSER_VERSION and active.get('review_context_hash')==context_hash
             if not force and (compatible or active is None) and retry and now<retry:
                 out=view(previous,now=now);out['refresh_status']='not_due';return out
             try:
+                if not valid_contexts:raise ValueError('Malformed reviewed year contexts')
                 response=(fetcher or fetch_page)(etag=active.get('etag') if compatible else None,
                               last_modified=active.get('last_modified') if compatible else None)
                 if not isinstance(response,PageResponse):raise ValueError('Invalid fetch response')
@@ -167,7 +174,7 @@ def refresh(*,force=False,root=None,now=None,fetcher=None,reviewed_years=None):
                     candidate=copy.deepcopy(active)
                     result='unchanged'
                 elif response.status==200:
-                    parsed=parse_page(response.html,reviewed_years=reviewed_years)
+                    parsed=parse_page(response.html,reviewed_years=contexts)
                     old={n['id']:n for n in (active or {}).get('notices',[])}
                     notices=[]
                     for notice in parsed['notices']:
@@ -190,10 +197,12 @@ def refresh(*,force=False,root=None,now=None,fetcher=None,reviewed_years=None):
                     result='updated' if not active or parsed['section_hash']!=active.get('section_hash') else 'unchanged'
                 else:raise ValueError('Unexpected HTTP response')
                 candidate['last_success_at']=now.isoformat()
+                candidate['review_context_hash']=context_hash
                 # Stable revision: time-only metadata updates do not create changes.
                 stable=[{k:v for k,v in n.items() if k not in ('first_seen_at','last_seen_at')}
                         for n in candidate['notices']]
                 candidate['revision']=digest(stable)
+                result='updated' if not active or candidate['revision']!=active['revision'] else 'unchanged'
                 # Full-record checksum guards metadata separately from semantic revision.
                 candidate['checksum']=digest(candidate['notices'])
                 if not _active_valid(candidate):raise ValueError('Invalid candidate notice model')
@@ -364,13 +373,13 @@ def annotate_journey(option,state):
 
 
 def query(*,route=None,when_local=None,auto_refresh=True):
-    state=snapshot(auto_refresh=auto_refresh)
     at=None
     if when_local is not None:
         from service_updates_parser import _local
         try:at=_local(datetime.fromisoformat(when_local))
         except (ValueError,TypeError):return {'error':'invalid_date_time','message':'Supply an unambiguous Chicago timestamp.'}
+    state=snapshot(auto_refresh=auto_refresh)
     notices=[n for n in state['notices'] if (route is None or not n['routes'] or route in n['routes']) and
              (at is None or _during(n,at,at)[0])]
-    return {**metadata(state),'notices':notices,'notice_count':len(notices),
+    return {**metadata(state),'service_notices':notices,'notices':notices,'notice_count':len(notices),
             'special_service_notices':[n for n in notices if any(e['type']=='special_service' for e in n['effects'])]}

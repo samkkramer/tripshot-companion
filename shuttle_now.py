@@ -22,6 +22,7 @@ from stops_catalog import LOCAL_CATALOG
 from tripshot_enrichment import resolve_query, decorate_rows
 from published_loop import lookup as official_loop_lookup, normalize as normalize_stop_name
 from published_full import lookup as full_published_lookup
+import service_updates as service
 
 
 def load_once(query: str, label: str, url: str, service_day: str) -> dict:
@@ -59,6 +60,7 @@ def service_days_for(now: datetime) -> list[str]:
     return [day.isoformat() for day in days]
 
 
+@service.pinned
 def combine(query: str, sources: dict[str, str], *, limit: int = 8,
             service_day: str | None = None, horizon_hours: int = 4) -> dict:
     if not isinstance(horizon_hours, int) or not 1 <= horizon_hours <= 12:
@@ -119,7 +121,10 @@ def combine(query: str, sources: dict[str, str], *, limit: int = 8,
         if key not in seen:
             distinct.append(row)
             seen.add(key)
+    state=service.snapshot()
+    distinct=service.annotate_departures(distinct,state)
     return {'stop_query': query, 'queried_service_days': days,
+            **service.metadata(state),
             'queried_at_local': now.isoformat(timespec='seconds'),
             'horizon_hours': horizon_hours, 'coverage': coverage,
             'arrivals': distinct[:limit], 'total_matched': len(distinct),

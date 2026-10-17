@@ -30,6 +30,7 @@ async def main() -> None:
 
     env = os.environ.copy()
     env['TRIPSHOT_DISABLE_SCHEDULE_REFRESH'] = '1'
+    env['TRIPSHOT_DISABLE_SERVICE_REFRESH'] = '1'
     env['TRIPSHOT_JSON_PATH'] = str(project / 'data' / 'example_ride.json')
     env['TRIPSHOT_STOP_NAMES_PATH'] = str(project / 'data' / 'stop_names.example.json')
     server = StdioServerParameters(
@@ -53,6 +54,7 @@ async def main() -> None:
             'plan_scheduled_shuttle_trip', 'get_scheduled_stops_near',
             'plan_scheduled_trip_to_location', 'refresh_published_timetables',
             'get_published_timetable_status',
+            'get_service_updates', 'refresh_service_updates',
         }
         if names != expected:
             raise RuntimeError(f'Tool inventory changed: missing={expected-names}, added={names-expected}')
@@ -73,6 +75,14 @@ async def main() -> None:
         if payload.get('stop_count_in_snapshot') != 2 or 'DEMO' not in payload.get('route_name', ''):
             raise RuntimeError('Tool did not return the expected synthetic ride summary.')
         print("SUCCESS: MCP tool call returned without error.")
+        updates = await client.call_tool('get_service_updates', {'refresh': False})
+        if updates.is_error:
+            raise RuntimeError('Service Updates cached query failed over MCP.')
+        updates_payload = updates.structured_content
+        if updates_payload is None:
+            updates_payload = json.loads(next(b.text for b in updates.content if isinstance(b, TextContent)))
+        if updates_payload.get('normal_service_confirmed') is not False:
+            raise RuntimeError('Service Updates incorrectly confirms normal operation.')
         if response.structured_content is not None:
             import json
             print(json.dumps(response.structured_content, indent=2, default=str)[:3500])
