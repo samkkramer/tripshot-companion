@@ -1,4 +1,6 @@
-# Project status — 2026-10-17
+# Project status — 2026-10-28
+
+**Publication review:** Credential scans of publication files and existing Git history found no secrets. Current documentation is sanitized, and author name/email are retained with owner permission. Older commits still contain non-credential local paths/deployment fingerprints; history was not rewritten. Added six publication safeguards: **111 tests** and the 18-tool local MCP smoke test pass. No GitHub remote or push was created. See the [review/checklist](docs/PUBLICATION_REVIEW.md). Operational readiness observations below are historical October 17 results, not a fresh source/tunnel verification.
 
 **Development version:** Existing TripShot Companion plus Service Updates; **18 stdio MCP tools**, with all 16 baseline signatures/defaults preserved. Work is confined to Projects. Original Downloads runtime and Secure MCP Tunnel untouched; no remote, deployment, cloud infrastructure, or scheduler.
 

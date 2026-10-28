@@ -1,6 +1,6 @@
 # TripShot Companion
 
-An existing read-only Python MCP application for Northwestern shuttle information. The folder name ends in v6; the consolidated code includes v10 timetable maintenance. This checkout is the development copy in `C:\Users\samkk\Projects\TripShot_MCP\TripShot_MCP_Starter_v6`. The Downloads runtime and its Secure MCP Tunnel are separate and must not be changed from this checkout.
+An existing read-only Python MCP application for Northwestern shuttle information. The folder name ends in v6; the consolidated code includes v10 timetable maintenance. Keep the maintained checkout separate from any legacy runtime. Changing an operational Secure MCP Tunnel requires separate authorization.
 
 ## Architecture and data sources
 
@@ -33,7 +33,7 @@ See [tool schemas](docs/MCP_TOOLS.md), [current status](PROJECT_STATUS.md), [his
 Create the environment in this checkout. Never copy or activate the original runtime's environment. During migration, the copied environment was retained as ignored `.venv-migration-backup/` and a new local `.venv` created.
 
 ```powershell
-Set-Location 'C:\Users\samkk\Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
+Set-Location (Join-Path $env:USERPROFILE 'Projects\TripShot_MCP\TripShot_MCP_Starter_v6')
 python --version
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
@@ -98,8 +98,8 @@ Configure a local stdio-compatible MCP client to launch this development interpr
 
 ```json
 {
-  "command": "C:\\Users\\samkk\\Projects\\TripShot_MCP\\TripShot_MCP_Starter_v6\\.venv\\Scripts\\python.exe",
-  "args": ["-u", "C:\\Users\\samkk\\Projects\\TripShot_MCP\\TripShot_MCP_Starter_v6\\server.py"]
+  "command": "C:\\path\\to\\TripShot_Companion\\.venv\\Scripts\\python.exe",
+  "args": ["-u", "C:\\path\\to\\TripShot_Companion\\server.py"]
 }
 ```
 
@@ -114,6 +114,8 @@ The current official October 16 notice omits its year, so default interpretation
 The offline demo uses a synthetic paraphrase and explicit 2026 fixture review: the original **October 16, 16:32 Central L (EB)** schedule record remains visible, changes from `uncertain` to `unavailable`, and affected same-vehicle journeys move to `excluded_options`. It makes no external requests and uses only a temporary cache.
 
 ## Security and contribution
+
+Before publication, follow the [GitHub publication review](docs/PUBLICATION_REVIEW.md) and run `scripts/audit_publication.py --staged` plus `--history`. Publish reviewed Git content, not a bulk upload of this working directory: ignored local data and credentials are not protected by a manual ZIP upload. Personal author attribution is retained with permission; older commits still contain non-credential machine/deployment metadata despite cleanup of the current documentation.
 
 The operational `tripshot-local` profile still launches the Downloads runtime. See the [controlled cutover and rollback runbook](docs/DEPLOYMENT_RUNBOOK.md) for verified readiness, pending notice interpretations, exact Windows PowerShell steps and end-to-end acceptance. Explicit approval is required before changing/stopping/starting that operational tunnel; no cutover has been executed.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-28 — GitHub publication security review
+
+- Expanded ignore rules to cover the screenshot's missing dependency-directory rule and additional local/private artifact types.
+- Scanned current publication files and all existing Git history locally with Gitleaks and an independent object/content guard; no credential findings detected. Kept approved author attribution and disclosed historical non-credential metadata without rewriting history.
+- Removed personal machine paths and actual profile/tunnel fingerprints from current public documentation, preserving portable cutover templates and private backup verification instructions.
+- Added a reusable redacted publication audit, six offline regression tests, and a publication checklist. All 111 tests and the 18-tool MCP smoke test pass; application behavior and dependencies are unchanged. No remote, push, operational profile access or deployment was performed.
+
 ## 2026-10-17 — Deployment-readiness review and controlled cutover plan
 
 - Reverified 105 regressions, real 18-tool MCP smoke and dependency consistency. A local MCP session from an unrelated directory successfully refreshed official Service Updates and queried future schedules and journeys with alerts enabled.

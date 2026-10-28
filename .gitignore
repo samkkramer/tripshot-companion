@@ -1,6 +1,7 @@
 # Environments, caches, generated outputs
 .venv*/
 venv/
+node_modules/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -23,6 +24,13 @@ dist/
 .env.*
 !.env.example
 .aws/
+.ssh/
+.azure/
+.gcp/
+.npmrc
+.pypirc
+.netrc
+.git-credentials
 .codex/
 .agents/
 *credentials*
@@ -38,6 +46,16 @@ dist/
 *.zip
 *.har
 *.pcap
+*.dump
+*.sqlite*
+*.db
+*.local.*
+*.private.*
+/private/
+/captures/
+/exports/
+/tripshot-local.yaml
+/tripshot-local.yml
 
 # Local imports, captures and timetable state/history; only synthetic fixtures ship
 /data/**

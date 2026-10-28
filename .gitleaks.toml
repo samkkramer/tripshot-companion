@@ -1,0 +1,3 @@
+# Keep the maintained rules enabled; no repository-wide exclusions or baselines.
+[extend]
+useDefault = true

@@ -11,7 +11,7 @@ Application release under review: `e233ae7` plus this documentation-only readine
 - Official Service Updates refreshed at **2026-10-17 13:44:45 America/Chicago** (`18:44:45.900886+00:00`). Result: `refresh_status=updated`, `service_updates_status=parse_review_required`, no fetch error, three notices, `normal_service_confirmed=false`. Checked/last-success times agree. Source publication/update timestamps are null; retrieval time is not publication time.
 - `get_shuttles_at_time("Emerson/Maple (EB)", "2026-10-19T08:00")` returned four schedule rows. Emerson/Maple→Tech journey at that time returned seven options; first boards 08:29 and alights 08:35. Both retain provisional warnings from the unresolved-year Intercampus notice. Loop Library/Norris→Emerson/Maple (WB), October 19 at 19:00, returned eight `schedule_only` options.
 - Development catalog exists with **50 stops**; local live-source configuration exists and validates both Loop and Intercampus. No URLs/configuration contents were displayed. Optional saved route-group `data/live_response.json` is absent: the two legacy saved-route-group tools remain discoverable but require an intentional local snapshot before successful invocation. The default saved-ride/vehicle tools use synthetic data, not an operating vehicle.
-- `tripshot-local` exists at `C:\Users\samkk\AppData\Roaming\tunnel-client\tripshot-local.yaml`, with one stdio command pointing to Downloads, runtime key reference `env:CONTROL_PLANE_API_KEY`, and loopback health address `127.0.0.1:8080`. No tunnel-client process was present at inspection. Recheck immediately before changing anything.
+- `tripshot-local` exists at `%APPDATA%\tunnel-client\tripshot-local.yaml`, with one stdio command pointing to Downloads, runtime key reference `env:CONTROL_PLANE_API_KEY`, and loopback health address `127.0.0.1:8080`. No tunnel-client process was present at inspection. Recheck immediately before changing anything.
 - The key is **not available in Codex's process environment**. This does not establish whether another PowerShell session has it. Authenticated doctor/start checks are deferred until the existing trusted key-loading procedure has supplied the same reference in the operator shell. Never paste a key into chat, a command argument, this repository, or the profile.
 
 No operational profile changes, backups, tunnel startup, authenticated doctor run, ChatGPT discovery refresh, or end-to-end rollout have been performed. Only the development data caches were refreshed.
@@ -32,14 +32,14 @@ Current evidence revisions (not credentials): Intercampus `25b946258ad69c278392c
 
 Official [Secure MCP Tunnel guidance](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) describes local stdio forwarding, runtime-key references, doctor, foreground run and health/readiness checks. The installed client's help is the authority for exact flags here. No `init`, admin tunnel mutation, connection recreation, or client upgrade is part of this cutover.
 
-Observed client: **0.0.16**, build `5f99daabd4aa4a77049e6d81d54a0d8c18335397`. Projects and Downloads executables have identical SHA-256 `4226bb74a72388147882881f29f79801b95e285d731a138071812e3aa6766571`. The executable is intentionally ignored by Git; retain it on disk. Read-only checks performed: `--version`, main/quickstart help, profile list, profile-edit help, sample stdio profile, run/doctor/health help. This CLI has `profiles edit`; there is no `config` command. Verified flags include `--profile-dir`, `--profile`, `--explain`, `--json`, and health `--require-control-plane-poll`.
+Observed client: **0.0.16**, build `5f99daabd4aa4a77049e6d81d54a0d8c18335397`. Projects and Downloads executables have identical SHA-256 `4226bb74a72388147882881f29f79801b95e285d731a138071812e3aa6766571`. The executable is intentionally ignored by Git; retain it on disk. Read-only checks performed: `--version`, main/quickstart help, profile list, profile-edit help, sample stdio profile, run/doctor/health help. All path examples below are templates: set the checkout and legacy directories to your actual locations. This CLI has `profiles edit`; there is no `config` command. Verified flags include `--profile-dir`, `--profile`, `--explain`, `--json`, and health `--require-control-plane-poll`.
 
-The profile's original SHA-256 is `6cd68b523d0c5fb9da4119447fbb1af75f555d9dc39a1b93b992794c99b68b08`; the tunnel-ID fingerprint is `e7cb7a65636c` (full ID withheld). The script below fails if this reviewed profile has changed, rather than overwriting an unexpected configuration.
+Local profile hashes and tunnel identity fingerprints are deliberately not published. Before approving a cutover, privately verify the current profile. The script captures its hash in memory before backup, verifies that backup, and preserves all configuration outside the command. Record the printed backup hash privately for rollback.
 
 The **only profile change** will be its single `mcp.commands[].command` value:
 
 ```yaml
-command: "C:/Users/samkk/Projects/TripShot_MCP/TripShot_MCP_Starter_v6/.venv/Scripts/python.exe -u C:/Users/samkk/Projects/TripShot_MCP/TripShot_MCP_Starter_v6/server.py"
+command: "C:/path/to/TripShot_Companion/.venv/Scripts/python.exe -u C:/path/to/TripShot_Companion/server.py"
 ```
 
 Tunnel ID, API-key reference, health/logging/transport settings and every other profile byte remain unchanged. Backups stay outside Git beside the profile and contain references, not credential material. Do not back up a profile containing literal secrets; the guard below aborts if it detects them.
@@ -56,13 +56,16 @@ Prevent a race with another operator: use only this guarded foreground procedure
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$tripShotRoot = 'C:\Users\samkk\Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
+$tripShotRoot = Join-Path $env:USERPROFILE 'Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
 $tripShotClient = Join-Path $tripShotRoot 'tunnel-client.exe'
 $tripShotProfiles = Join-Path $env:APPDATA 'tunnel-client'
 $tripShotProfile = Join-Path $tripShotProfiles 'tripshot-local.yaml'
-$expectedProfileHash = '6CD68B523D0C5FB9DA4119447FBB1AF75F555D9DC39A1B93B992794C99B68B08'
 $expectedClientHash = '4226BB74A72388147882881F29F79801B95E285D731A138071812E3AA6766571'
-$newCommand = 'C:/Users/samkk/Projects/TripShot_MCP/TripShot_MCP_Starter_v6/.venv/Scripts/python.exe -u C:/Users/samkk/Projects/TripShot_MCP/TripShot_MCP_Starter_v6/server.py'
+$newPython = (Join-Path $tripShotRoot '.venv\Scripts\python.exe').Replace('\','/')
+$newServer = (Join-Path $tripShotRoot 'server.py').Replace('\','/')
+$newCommand = '"{0}" -u "{1}"' -f $newPython,$newServer
+$newYamlCommand = ConvertTo-Json -InputObject $newCommand -Compress
+$oldRoot = (Join-Path $env:USERPROFILE 'Downloads\TripShot_MCP\TripShot_MCP_Starter_v6').Replace('\','/')
 
 if (-not [Environment]::GetEnvironmentVariable('CONTROL_PLANE_API_KEY', 'Process')) {
     throw 'Runtime key reference is unavailable. Use the existing trusted key-loading procedure in this shell; do not paste a key into command text or chat.'
@@ -104,9 +107,7 @@ try {
     if (@(Get-Process -Name 'tunnel-client' -ErrorAction SilentlyContinue).Count -gt 0) {
         throw 'A tunnel-client is still running. No profile change was made.'
     }
-    if ((Get-FileHash -LiteralPath $tripShotProfile -Algorithm SHA256).Hash -ne $expectedProfileHash) {
-        throw 'Operational profile changed since review. No backup/edit performed; review it privately again.'
-    }
+    $expectedProfileHash = (Get-FileHash -LiteralPath $tripShotProfile -Algorithm SHA256).Hash
 
     $originalBytes = [IO.File]::ReadAllBytes($tripShotProfile)
     $original = [IO.File]::ReadAllText($tripShotProfile)
@@ -119,13 +120,13 @@ try {
     $commandRegex = [regex]::new('(?m)^(?<prefix>[ \t]+command:[ \t]*)(?<value>[^\r\n]*)(?<cr>\r?)$')
     $commandMatches = $commandRegex.Matches($original)
     if ($commandMatches.Count -ne 1 -or
-        -not $commandMatches[0].Value.Contains('C:/Users/samkk/Downloads/TripShot_MCP/TripShot_MCP_Starter_v6/.venv/Scripts/python.exe') -or
-        -not $commandMatches[0].Value.Contains('C:/Users/samkk/Downloads/TripShot_MCP/TripShot_MCP_Starter_v6/server.py')) {
+        -not $commandMatches[0].Value.Contains($oldRoot + '/.venv/Scripts/python.exe') -or
+        -not $commandMatches[0].Value.Contains($oldRoot + '/server.py')) {
         throw 'Expected single old stdio command not found. Nothing was copied or edited.'
     }
     $candidate = $commandRegex.Replace($original, [Text.RegularExpressions.MatchEvaluator]{
         param($m)
-        $m.Groups['prefix'].Value + '"' + $newCommand + '"' + $m.Groups['cr'].Value
+        $m.Groups['prefix'].Value + $newYamlCommand + $m.Groups['cr'].Value
     })
     if ($commandRegex.Replace($original,'${prefix}<MCP_COMMAND>${cr}') -cne
         $commandRegex.Replace($candidate,'${prefix}<MCP_COMMAND>${cr}')) {
@@ -140,6 +141,7 @@ try {
         throw 'Backup verification failed; operational profile not changed.'
     }
     Write-Host "Verified rollback backup: $tripShotBackup"
+    Write-Host "Record privately for rollback: original profile SHA-256 $expectedProfileHash"
 
     $hadBom = $originalBytes.Length -ge 3 -and $originalBytes[0] -eq 239 -and
         $originalBytes[1] -eq 187 -and $originalBytes[2] -eq 191
@@ -169,7 +171,7 @@ The foreground call intentionally remains running. Do not launch a second `run` 
 ### Window B — verify readiness, then ChatGPT
 
 ```powershell
-$tripShotRoot = 'C:\Users\samkk\Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
+$tripShotRoot = Join-Path $env:USERPROFILE 'Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
 $tripShotClient = Join-Path $tripShotRoot 'tunnel-client.exe'
 $tripShotProcesses = @(Get-Process -Name 'tunnel-client' -ErrorAction SilentlyContinue)
 if ($tripShotProcesses.Count -ne 1) { throw 'Expected exactly one tunnel-client; investigate before testing.' }
@@ -181,16 +183,17 @@ Initial startup/long-poll establishment can take time. If the first readiness pr
 
 ## Rollback
 
-After **Ctrl+C in Window A**, wait for the new client and stdio child to exit. Use a trusted key-loaded shell. Paste the exact backup path printed during cutover; do not select an arbitrary latest backup. Restoring that file restores the previous command **and the same ID/reference**, without modifying the original Downloads runtime. The guard requires the reviewed original hash.
+After **Ctrl+C in Window A**, wait for the new client and stdio child to exit. Use a trusted key-loaded shell. Paste the exact backup path printed during cutover; do not select an arbitrary latest backup. Restoring that file restores the previous command **and the same ID/reference**, without modifying the original Downloads runtime. The guard requires the original hash recorded privately during cutover.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$tripShotRoot = 'C:\Users\samkk\Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
+$tripShotRoot = Join-Path $env:USERPROFILE 'Projects\TripShot_MCP\TripShot_MCP_Starter_v6'
 $tripShotClient = Join-Path $tripShotRoot 'tunnel-client.exe'
 $tripShotProfiles = Join-Path $env:APPDATA 'tunnel-client'
 $tripShotProfile = Join-Path $tripShotProfiles 'tripshot-local.yaml'
 $rollbackBackup = Read-Host 'Exact verified backup path printed during cutover'
-$expectedOriginalHash = '6CD68B523D0C5FB9DA4119447FBB1AF75F555D9DC39A1B93B992794C99B68B08'
+$expectedOriginalHash = Read-Host 'Original profile SHA-256 recorded privately during cutover'
+if ($expectedOriginalHash -notmatch '^[0-9A-Fa-f]{64}$') { throw 'Expected a recorded SHA-256 hash.' }
 if (-not [Environment]::GetEnvironmentVariable('CONTROL_PLANE_API_KEY','Process')) {
     throw 'Use the existing trusted runtime-key loading procedure in this shell first.'
 }
